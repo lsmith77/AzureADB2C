@@ -23,21 +23,13 @@ class Provider extends AbstractProvider
         'openid',
     ];
 
-    /**
-     * Get the policy.
-     *
-     * @return string
-     */
+    protected $refreshToken;
+
     private function getPolicy()
     {
         return $this->parameters['policy'] ?? 'login';
     }
 
-    /**
-     * Get the B2C policy.
-     *
-     * @return mixed
-     */
     private function getB2CPolicy()
     {
         $policy = $this->getConfig('policy');
@@ -49,11 +41,6 @@ class Provider extends AbstractProvider
         return $policy;
     }
 
-    /**
-     * Set the redirect URL.
-     *
-     * @return void
-     */
     private function setRedirectUrl()
     {
         $redirectTemplate = $this->getConfig('redirect_template');
@@ -84,8 +71,8 @@ class Provider extends AbstractProvider
         try {
             $discovery = sprintf(
                 'https://%s/%s/%s/v2.0/.well-known/openid-configuration',
-                $this->getConfig('custom_domain', $this->getConfig('domain').'.b2clogin.com'),
-                $this->getConfig('tenant', $this->getConfig('domain').'.onmicrosoft.com'),
+                $this->getConfig('custom_domain', $this->getConfig('domain') . '.b2clogin.com'),
+                $this->getConfig('tenant', $this->getConfig('domain') . '.onmicrosoft.com'),
                 $this->getB2CPolicy()
             );
 
@@ -176,7 +163,7 @@ class Provider extends AbstractProvider
                 throw new InvalidStateException('iss on id_token does not match issuer value on the OpenID configuration');
             }
             // aud validation
-            if (! str_contains($payloadJson['aud'], $this->config['client_id'])) {
+            if (!str_contains($payloadJson['aud'], $this->config['client_id'])) {
                 throw new InvalidStateException('aud on id_token does not match the client_id for this application');
             }
             // exp validation
@@ -198,9 +185,9 @@ class Provider extends AbstractProvider
     {
         return (new User())->setRaw($user)->map([
             'id'       => $user['sub'],
-            'nickname' => $user['name'],
-            'name'     => $user['name'],
-            'email'    => $user['emails'][0],
+            'nickname' => $user['name'] ?? null,
+            'name'     => $user['name'] ?? null,
+            'email'    => $user['emails'][0] ?? null,
         ]);
     }
 
@@ -212,8 +199,8 @@ class Provider extends AbstractProvider
     public function logout($post_logout_uri)
     {
         return $this->getOpenIdConfiguration()->end_session_endpoint
-            .'?logout&post_logout_redirect_uri='
-            .urlencode($post_logout_uri);
+            . '?logout&post_logout_redirect_uri='
+            . urlencode($post_logout_uri);
     }
 
     /**
