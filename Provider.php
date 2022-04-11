@@ -5,6 +5,7 @@ namespace SocialiteProviders\AzureADB2C;
 use Exception;
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
+use GuzzleHttp\RequestOptions;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -116,6 +117,18 @@ class Provider extends AbstractProvider
         return $this->getOpenIdConfiguration()->token_endpoint;
     }
 
+    public function getAccessTokenResponse($code)
+    {
+        $fields = $this->getTokenFields($code);
+        $fields['scope'] = implode(' ', $this->getScopes());
+
+        $response = $this->getHttpClient()->post($this->getTokenUrl(), [
+            RequestOptions::FORM_PARAMS => $fields,
+        ]);
+
+        return json_decode((string) $response->getBody(), true);
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -136,7 +149,10 @@ class Provider extends AbstractProvider
         $response = $this->getAccessTokenResponse($this->getCode());
         $claims = $this->validateIdToken(Arr::get($response, 'id_token'));
 
-        return $this->mapUserToObject($claims);
+        $user = $this->mapUserToObject($claims);
+        $user->setAccessTokenResponseBody($response);
+
+        return $user;
     }
 
     /**
@@ -181,7 +197,10 @@ class Provider extends AbstractProvider
     }
 
     /**
-     * {@inheritdoc}
+     * Map the raw user array to a Socialite User instance.
+     *
+     * @param  array  $user
+     * @return \SocialiteProviders\Manager\OAuth2\User
      */
     protected function mapUserToObject(array $user)
     {
