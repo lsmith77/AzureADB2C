@@ -27,6 +27,8 @@ class Provider extends AbstractProvider
         'openid',
     ];
 
+    protected $refreshToken;
+
     private function getPolicy()
     {
         return $this->parameters['policy'] ?? 'login';
@@ -138,6 +140,34 @@ class Provider extends AbstractProvider
     }
 
     /**
+     * {@inheritdoc}
+     */
+    protected function getRefreshTokenResponse($token)
+    {
+        $fields = $this->getTokenFields($token);
+        $fields['grant_type'] = 'refresh_token';
+        $fields['refresh_token'] = $fields['code'];
+        unset($fields['code']);
+        $fields['scope'] = implode(' ', $this->getScopes());
+
+        $response = $this->getHttpClient()->post($this->getTokenUrl(), [
+            RequestOptions::FORM_PARAMS => $fields,
+        ]);
+
+        return json_decode((string) $response->getBody(), true);
+    }
+
+    public function setRefreshToken($refreshToken)
+    {
+        $this->refreshToken = $refreshToken;
+    }
+
+    protected function getRefreshToken()
+    {
+        return $this->refreshToken;
+    }
+
+    /**
      * Additional implementation to get user claims from id_token.
      *
      * @return \SocialiteProviders\Manager\OAuth2\User
@@ -146,7 +176,11 @@ class Provider extends AbstractProvider
     {
         $this->setRedirectUrl();
 
-        $response = $this->getAccessTokenResponse($this->getCode());
+        if ($this->refreshToken) {
+            $response = $this->getRefreshTokenResponse($this->refreshToken);
+        } else {
+            $response = $this->getAccessTokenResponse($this->getCode());
+        }
         $claims = $this->validateIdToken(Arr::get($response, 'id_token'));
 
         $user = $this->mapUserToObject($claims);
